@@ -14,17 +14,24 @@ export class AuthenticationService {
   private currentUserSubject: BehaviorSubject<User>;
   public currentUser: Observable<User>;
 
+  private readonly TOKEN = 'token';
+  private readonly USER = 'user';
+
   constructor(private http: HttpClient,
               private userService: UserService) {
 
 
-    if (!this.isUserLoggedIn)  // make sure to delete data from previous login
-      localStorage.removeItem('token');
-    const token: Token = JSON.parse(localStorage.getItem('token'));
-    if(token != null)
-      this.currentUserSubject = new BehaviorSubject(token.user);
-    else
+    if (!this.isUserLoggedIn) { // make sure to delete data from previous login
+      localStorage.removeItem(this.TOKEN);
+      localStorage.removeItem(this.USER);
+    }
+    const token: Token = JSON.parse(localStorage.getItem(this.TOKEN));
+    if(token == null)
       this.currentUserSubject = new BehaviorSubject(null);
+    else {
+      const user: User = JSON.parse(localStorage.getItem(this.USER));
+      this.currentUserSubject = new BehaviorSubject(user);
+    }
 
     this.currentUser = this.currentUserSubject.asObservable();
   }
@@ -40,25 +47,29 @@ export class AuthenticationService {
       return false;
 
 
-    const date = new Date();
+    const now = new Date();
     const expirationDate: Date = new Date(token.expirationDate);
 
-    return date.getTime() < expirationDate.getTime();
+    return now.getTime() < expirationDate.getTime();
   }
 
-  login(email: string, password: string) {
-    return this.http.post<Token>(`${environment.apiUrl}/login`, { email, password })
+  login(username: string, password: string) {
+    return this.http.post<Token>(`${environment.apiUrl}/login`, { username, password })
       .pipe(map(token => {
 
-        localStorage.setItem('token', JSON.stringify(token));
-        this.currentUserSubject.next(token.user);
+        localStorage.setItem(this.TOKEN, JSON.stringify(token));
+        this.userService.getCurrentUser().subscribe(user => {
+          localStorage.setItem(this.USER, JSON.stringify(user));
+          this.currentUserSubject.next(user);
+        });
+
         return token;
       }));
   }
 
   logout() {
-    // remove user from local storage to log user out
-    localStorage.removeItem('token');
+    localStorage.removeItem(this.TOKEN);
+    localStorage.removeItem(this.USER);
     this.currentUserSubject.next(null);
   }
 
