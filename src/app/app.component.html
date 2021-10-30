@@ -1,4 +1,4 @@
-<mat-toolbar fxLayout="row" [ngClass]="{ 'toolbar-logged-out' : !currentUser, 'toolbar-logged-in' : currentUser }">
+<mat-toolbar fxLayout="row" [ngClass]="{ 'toolbar-logged-out' : !currentUser, 'toolbar-logged-in' : currentUser }" color="primary">
   Notepay
   <a mat-button (click)="logout()" *ngIf="currentUser">Logout</a>
 </mat-toolbar>

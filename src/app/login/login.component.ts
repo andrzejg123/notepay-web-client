@@ -1,9 +1,11 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthenticationService } from '../_services/authentication.service';
 import { first } from 'rxjs/operators';
+import { UserService } from '../_services/user.service';
+import { User } from '../_models/user';
 
 @Component({
   selector: 'app-login',
@@ -15,7 +17,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   registrationForm: FormGroup;
   loading = false;
   submitted = false;
-  returnUrl: string;
   error = '';
   subscription: Subscription;
 
@@ -23,7 +24,8 @@ export class LoginComponent implements OnInit, OnDestroy {
     private formBuilder: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private authenticationService: AuthenticationService
+    private authenticationService: AuthenticationService,
+    private userService: UserService
   ) {
     // redirect to home if already logged in
     if (this.authenticationService.currentUserValue) {
@@ -44,12 +46,27 @@ export class LoginComponent implements OnInit, OnDestroy {
       password: ['', Validators.required],
     });
 
-    // get return url from route parameters or default to '/'
-    this.returnUrl = this.route.snapshot.queryParams[`returnUrl`] || '/';
   }
 
   // convenience getter for easy access to form fields
   get f() { return this.loginForm.controls; }
+
+  doLoginUser(username: string, password: string) {
+    this.authenticationService.login(username, password)
+      .pipe(first())
+      .subscribe(
+        () => {},
+        error => {
+          this.error = error;
+          this.loading = false;
+        });
+  }
+
+  waitForLogin() {
+    this.subscription = this.authenticationService.currentUser.subscribe(x => {
+      this.router.navigate(['/']);
+    });
+  }
 
   onLoginSubmit() {
     this.submitted = true;
@@ -60,18 +77,25 @@ export class LoginComponent implements OnInit, OnDestroy {
     }
 
     this.loading = true;
-    this.authenticationService.login(this.f.username.value, this.f.password.value)
-      .pipe(first())
-      .subscribe(
-        () => {},
-        error => {
-          this.error = error;
-          this.loading = false;
-        });
+    this.doLoginUser(this.f.username.value, this.f.password.value);
+    this.waitForLogin();
+  }
 
-    this.subscription = this.authenticationService.currentUser.subscribe(x => {
-      this.router.navigate([this.returnUrl]);
+  onRegistrationSubmit() {
+    this.submitted = true;
+
+    // stop here if form is invalid
+    if (this.registrationForm.invalid) {
+      return;
+    }
+    let user = this.registrationForm.value as User;
+    this.loading = true;
+
+    this.userService.registerUser(user).subscribe(x => {
+      this.doLoginUser(user.username, user.password);
     });
+
+    this.waitForLogin();
   }
 
   ngOnDestroy(): void {
